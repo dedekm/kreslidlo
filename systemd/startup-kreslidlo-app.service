@@ -5,7 +5,7 @@ Description=Git Pull & Restart Kreslidlo App
 After=network.target
 
 [Service]
-xecStart=/home/drakpi/kreslidlo/bin/start.sh
+ExecStart=/home/drakpi/kreslidlo/bin/start.sh
 User=drakpi
 Type=oneshot
 
