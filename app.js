@@ -1,4 +1,21 @@
 const five = require("johnny-five");
+const fs = require('fs');
+const path = require('path');
+
+// Create logs directory if it doesn't exist
+const logsDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir);
+}
+
+const logFile = path.join(logsDir, 'app.log');
+
+function log(message) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `${timestamp} - ${message}\n`;
+  console.log(message);
+  fs.appendFileSync(logFile, logMessage);
+}
 
 const PIN_BUTTON_UP = 2;
 const PIN_BUTTON_DOWN = 3;
@@ -82,7 +99,7 @@ class Motor {
   stop() {
     if (this.currentDirection !== null && this.loggingEnabled) {
       const duration = ((Date.now() - this.moveStartTime) / 1000).toFixed(1);
-      console.log(`Motor stopped after moving ${this.currentDirection.toUpperCase()} for ${duration}s (${this.updateCount} updates)`);
+      log(`Motor stopped after moving ${this.currentDirection.toUpperCase()} for ${duration}s (${this.updateCount} updates)`);
       this.currentDirection = null;
     }
     this.board.analogWrite(this.upPin, 0);
@@ -94,8 +111,8 @@ board.on("ready", function() {
   initializeStepper();
   initializeMotor();
 
-  console.log("Kreslidlo ready");
-  console.log("---");
+  log("Kreslidlo ready");
+  log("---");
 });
 
 function initializeMotor() {
@@ -144,32 +161,32 @@ function initializeMotor() {
   }, INIT_DELAY);
 
   yUpButton.on("press", () => {
-    if (loggingEnabled) console.log("Button: Y-UP pressed");
+    if (loggingEnabled) log("Button: Y-UP pressed");
     state.yUp = true;
     updateMotorState();
   });
 
   yUpButton.on("release", () => {
-    if (loggingEnabled) console.log("Button: Y-UP released");
+    if (loggingEnabled) log("Button: Y-UP released");
     state.yUp = false;
     updateMotorState();
   });
 
   yDownButton.on("press", () => {
-    if (loggingEnabled) console.log("Button: Y-DOWN pressed");
+    if (loggingEnabled) log("Button: Y-DOWN pressed");
     state.yDown = true;
     updateMotorState();
   });
 
   yDownButton.on("release", () => {
-    if (loggingEnabled) console.log("Button: Y-DOWN released");
+    if (loggingEnabled) log("Button: Y-DOWN released");
     state.yDown = false;
     updateMotorState();
   });
 
   yTopEndstop.on("press", () => {
     if (!state.yTopLimit && loggingEnabled) {
-      console.log("Limit: Y-TOP reached");
+      log("Limit: Y-TOP reached");
       state.yTopLimit = true;
       updateMotorState();
     }
@@ -177,7 +194,7 @@ function initializeMotor() {
 
   yTopEndstop.on("release", () => {
     if (state.yTopLimit && loggingEnabled) {
-      console.log("Limit: Y-TOP cleared");
+      log("Limit: Y-TOP cleared");
       state.yTopLimit = false;
       updateMotorState();
     }
@@ -185,7 +202,7 @@ function initializeMotor() {
 
   yBottomEndstop.on("press", () => {
     if (!state.yBottomLimit && loggingEnabled) {
-      console.log("Limit: Y-BOTTOM reached");
+      log("Limit: Y-BOTTOM reached");
       state.yBottomLimit = true;
       updateMotorState();
     }
@@ -193,7 +210,7 @@ function initializeMotor() {
 
   yBottomEndstop.on("release", () => {
     if (state.yBottomLimit && loggingEnabled) {
-      console.log("Limit: Y-BOTTOM cleared");
+      log("Limit: Y-BOTTOM cleared");
       state.yBottomLimit = false;
       updateMotorState();
     }
@@ -207,7 +224,7 @@ function initializeMotor() {
     yMotor.stop();
   });
 
-  console.log("Motor initialized");
+  log("Motor initialized");
 }
 
 function initializeStepper() {
@@ -244,52 +261,52 @@ function initializeStepper() {
   }, INIT_DELAY);
 
   buttonRight.on("press", () => {
-    if (loggingEnabled) console.log("Button: X-RIGHT pressed");
+    if (loggingEnabled) log("Button: X-RIGHT pressed");
     buttonsPressed.right = true;
     checkAndMove();
   });
 
   buttonRight.on("release", () => {
-    if (loggingEnabled) console.log("Button: X-RIGHT released");
+    if (loggingEnabled) log("Button: X-RIGHT released");
     buttonsPressed.right = false;
     checkAndMove();
   });
 
   buttonLeft.on("press", () => {
-    if (loggingEnabled) console.log("Button: X-LEFT pressed");
+    if (loggingEnabled) log("Button: X-LEFT pressed");
     buttonsPressed.left = true;
     checkAndMove();
   });
 
   buttonLeft.on("release", () => {
-    if (loggingEnabled) console.log("Button: X-LEFT released");
+    if (loggingEnabled) log("Button: X-LEFT released");
     buttonsPressed.left = false;
     checkAndMove();
   });
 
   endstopRight.on("press", () => {
-    if (loggingEnabled) console.log("Limit: X-RIGHT reached");
+    if (loggingEnabled) log("Limit: X-RIGHT reached");
     endstopsPressed.right = true;
   });
 
   endstopRight.on("release", () => {
-    if (loggingEnabled) console.log("Limit: X-RIGHT cleared");
+    if (loggingEnabled) log("Limit: X-RIGHT cleared");
     endstopsPressed.right = false;
   });
 
   endstopLeft.on("press", () => {
-    if (loggingEnabled) console.log("Limit: X-LEFT reached");
+    if (loggingEnabled) log("Limit: X-LEFT reached");
     endstopsPressed.left = true;
   });
 
   endstopLeft.on("release", () => {
-    if (loggingEnabled) console.log("Limit: X-LEFT cleared");
+    if (loggingEnabled) log("Limit: X-LEFT cleared");
     endstopsPressed.left = false;
   });
 
   function checkAndMove() {
     if (buttonsPressed.right && buttonsPressed.left) {
-      if (loggingEnabled) console.log("Both X buttons pressed - stopping");
+      if (loggingEnabled) log("Both X buttons pressed - stopping");
       return;
     }
 
@@ -308,7 +325,7 @@ function initializeStepper() {
           } else {
             if (loggingEnabled) {
               const duration = ((Date.now() - moveStartTime) / 1000).toFixed(1);
-              console.log(`Stepper stopped after moving RIGHT for ${duration}s (${stepCount} cycles)`);
+              log(`Stepper stopped after moving RIGHT for ${duration}s (${stepCount} cycles)`);
             }
             isMoving = false;
             currentDirection = null;
@@ -328,7 +345,7 @@ function initializeStepper() {
           } else {
             if (loggingEnabled) {
               const duration = ((Date.now() - moveStartTime) / 1000).toFixed(1);
-              console.log(`Stepper stopped after moving LEFT for ${duration}s (${stepCount} cycles)`);
+              log(`Stepper stopped after moving LEFT for ${duration}s (${stepCount} cycles)`);
             }
             isMoving = false;
             currentDirection = null;
@@ -338,5 +355,5 @@ function initializeStepper() {
     }
   }
 
-  console.log("Stepper initialized");
+  log("Stepper initialized");
 }

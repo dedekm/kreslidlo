@@ -2,7 +2,8 @@
 
 [Unit]
 Description=Git Pull & Restart Kreslidlo App
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 ExecStart=/home/drakpi/kreslidlo/bin/start.sh

@@ -5,7 +5,7 @@ Description=Kreslidlo App
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/node /home/drakpi/kreslidlo/app.js
+ExecStart=/bin/bash /home/drakpi/kreslidlo/bin/start.sh
 WorkingDirectory=/home/drakpi/kreslidlo
 StandardOutput=inherit
 StandardError=inherit

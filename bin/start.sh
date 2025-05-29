@@ -9,21 +9,18 @@ cd ~/kreslidlo
 # Create logs directory if it doesn't exist
 mkdir -p logs
 
-echo "---- Startup initiated at $(date) ----" >> logs/startup.log
-
-# Keep log file from growing too large by limiting to last 1000 lines
-if [ -f logs/startup.log ]; then
-    tail -n 1000 logs/startup.log > logs/startup.log.tmp
-    mv logs/startup.log.tmp logs/startup.log
+# Keep logs files from growing too large by limiting to last 100.000 lines
+if [ -f logs/system.log ]; then
+    tail -n 100000 logs/system.log > logs/system.log.tmp
+    mv logs/system.log.tmp logs/system.log
 fi
 
-# Pull the latest changes
-git pull origin master >> logs/startup.log 2>&1
+if [ -f logs/app.log ]; then
+    tail -n 100000 logs/app.log > logs/app.log.tmp
+    mv logs/app.log.tmp logs/app.log
+fi
 
-# Install npm dependencies
-npm install >> logs/startup.log 2>&1
+echo "---- Starting Kreslidlo at $(date) ----" >> logs/system.log
 
-# Restart the Node.js app service
-sudo systemctl restart kreslidlo-app.service
-
-echo "---- Startup complete at $(date) ----" >> logs/startup.log
+# Run the Node.js application
+node app.js
