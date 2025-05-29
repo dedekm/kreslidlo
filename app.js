@@ -33,8 +33,8 @@ const PIN_MOTOR_DOWN = 11;
 const PIN_STEPPER_DIR = 12;
 const PIN_STEPPER_STEP = 13;
 
-const MOTOR_SPEED_UP = 100;
-const MOTOR_SPEED_DOWN = 65;
+const MOTOR_SPEED_UP = 70;
+const MOTOR_SPEED_DOWN = 40;
 
 const INIT_DELAY = 1000; // 1 second delay before enabling logs
 
