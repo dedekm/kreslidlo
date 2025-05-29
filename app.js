@@ -1,5 +1,26 @@
 const five = require("johnny-five");
 
+const PIN_BUTTON_UP = 2;
+const PIN_BUTTON_DOWN = 3;
+const PIN_BUTTON_RIGHT = 4;
+const PIN_BUTTON_LEFT = 5;
+
+const PIN_LIMIT_UP = 6;
+const PIN_LIMIT_DOWN = 7;
+const PIN_LIMIT_RIGHT = 8;
+const PIN_LIMIT_LEFT = 9;
+
+const PIN_MOTOR_UP = 10;
+const PIN_MOTOR_DOWN = 11;
+
+const PIN_STEPPER_DIR = 12;
+const PIN_STEPPER_STEP = 13;
+
+const MOTOR_SPEED_UP = 100;
+const MOTOR_SPEED_DOWN = 65;
+
+const INIT_DELAY = 1000; // 1 second delay before enabling logs
+
 const board = new five.Board({ repl: false });
 
 const buttonsPressed = {
@@ -7,130 +28,315 @@ const buttonsPressed = {
   left: false
 }
 
+const endstopsPressed = {
+  right: false,
+  left: false
+}
+
+class Motor {
+  constructor(board, upPin, downPin, upSpeed, downSpeed) {
+    this.board = board;
+    this.upPin = upPin;
+    this.downPin = downPin;
+    this.upSpeed = upSpeed;
+    this.downSpeed = downSpeed;
+    this.moveStartTime = null;
+    this.currentDirection = null;
+    this.loggingEnabled = false;
+    this.updateCount = 0;
+    this.initialize();
+  }
+
+  initialize() {
+    this.board.pinMode(this.upPin, five.Pin.PWM);
+    this.board.pinMode(this.downPin, five.Pin.PWM);
+    setTimeout(() => {
+      this.loggingEnabled = true;
+    }, INIT_DELAY);
+  }
+
+  up() {
+    if (this.currentDirection !== 'up') {
+      this.stop();
+      this.moveStartTime = Date.now();
+      this.currentDirection = 'up';
+      this.updateCount = 0;
+    }
+    this.updateCount++;
+    this.board.analogWrite(this.upPin, this.upSpeed);
+    this.board.analogWrite(this.downPin, 0);
+  }
+
+  down() {
+    if (this.currentDirection !== 'down') {
+      this.stop();
+      this.moveStartTime = Date.now();
+      this.currentDirection = 'down';
+      this.updateCount = 0;
+    }
+    this.updateCount++;
+    this.board.analogWrite(this.upPin, 0);
+    this.board.analogWrite(this.downPin, this.downSpeed);
+  }
+
+  stop() {
+    if (this.currentDirection !== null && this.loggingEnabled) {
+      const duration = ((Date.now() - this.moveStartTime) / 1000).toFixed(1);
+      console.log(`Motor stopped after moving ${this.currentDirection.toUpperCase()} for ${duration}s (${this.updateCount} updates)`);
+      this.currentDirection = null;
+    }
+    this.board.analogWrite(this.upPin, 0);
+    this.board.analogWrite(this.downPin, 0);
+  }
+}
+
 board.on("ready", function() {
-  // // Create an Led on pin 9
-  // var led = new five.Led(9);
+  initializeStepper();
+  initializeMotor();
 
-  // // Strobe the pin on/off, defaults to 100ms phases
-  // led.strobe();
+  console.log("Kreslidlo ready");
+  console.log("---");
+});
 
-  // board.on("exit", () => {
-  //   led.off();
-  // });
+function initializeMotor() {
+  const yMotor = new Motor(board, PIN_MOTOR_UP, PIN_MOTOR_DOWN, MOTOR_SPEED_UP, MOTOR_SPEED_DOWN);
+  let loggingEnabled = false;
+
+  const state = {
+    yUp: false,
+    yDown: false,
+    yTopLimit: false,
+    yBottomLimit: false
+  };
+
+  function updateMotorState() {
+    if ((state.yUp && state.yDown) || (!state.yUp && !state.yDown)) {
+      yMotor.stop();
+      return;
+    }
+
+    if (state.yUp) {
+      if (!state.yTopLimit) {
+        yMotor.up();
+      } else {
+        yMotor.stop();
+      }
+      return;
+    }
+
+    if (state.yDown) {
+      if (!state.yBottomLimit) {
+        yMotor.down();
+      } else {
+        yMotor.stop();
+      }
+      return;
+    }
+  }
+
+  const yUpButton = new five.Button({ pin: PIN_BUTTON_UP, isPullup: true });
+  const yDownButton = new five.Button({ pin: PIN_BUTTON_DOWN, isPullup: true });
+  const yTopEndstop = new five.Button({ pin: PIN_LIMIT_UP, isPullup: true });
+  const yBottomEndstop = new five.Button({ pin: PIN_LIMIT_DOWN, isPullup: true });
+
+  setTimeout(() => {
+    loggingEnabled = true;
+  }, INIT_DELAY);
+
+  yUpButton.on("press", () => {
+    if (loggingEnabled) console.log("Button: Y-UP pressed");
+    state.yUp = true;
+    updateMotorState();
+  });
+
+  yUpButton.on("release", () => {
+    if (loggingEnabled) console.log("Button: Y-UP released");
+    state.yUp = false;
+    updateMotorState();
+  });
+
+  yDownButton.on("press", () => {
+    if (loggingEnabled) console.log("Button: Y-DOWN pressed");
+    state.yDown = true;
+    updateMotorState();
+  });
+
+  yDownButton.on("release", () => {
+    if (loggingEnabled) console.log("Button: Y-DOWN released");
+    state.yDown = false;
+    updateMotorState();
+  });
+
+  yTopEndstop.on("press", () => {
+    if (!state.yTopLimit && loggingEnabled) {
+      console.log("Limit: Y-TOP reached");
+      state.yTopLimit = true;
+      updateMotorState();
+    }
+  });
+
+  yTopEndstop.on("release", () => {
+    if (state.yTopLimit && loggingEnabled) {
+      console.log("Limit: Y-TOP cleared");
+      state.yTopLimit = false;
+      updateMotorState();
+    }
+  });
+
+  yBottomEndstop.on("press", () => {
+    if (!state.yBottomLimit && loggingEnabled) {
+      console.log("Limit: Y-BOTTOM reached");
+      state.yBottomLimit = true;
+      updateMotorState();
+    }
+  });
+
+  yBottomEndstop.on("release", () => {
+    if (state.yBottomLimit && loggingEnabled) {
+      console.log("Limit: Y-BOTTOM cleared");
+      state.yBottomLimit = false;
+      updateMotorState();
+    }
+  });
+
+  setInterval(() => {
+    updateMotorState();
+  }, 100);
+
+  board.on("exit", () => {
+    yMotor.stop();
+  });
+
+  console.log("Motor initialized");
+}
+
+function initializeStepper() {
+  const speed = 80;
+  const stepsPerRev = 200;
+  const microSteps = 16;
+  const microStepsPerRev = stepsPerRev * microSteps;
+  const smallStepAmount = Math.floor(microStepsPerRev / 100);
+
+  let moveStartTime = null;
+  let stepCount = 0;
+  let isMoving = false;
+  let currentDirection = null;
+  let loggingEnabled = false;
+
+  const buttonRight = new five.Button({ pin: PIN_BUTTON_RIGHT, isPullup: true });
+  const buttonLeft = new five.Button({ pin: PIN_BUTTON_LEFT, isPullup: true });
+  const endstopRight = new five.Button({ pin: PIN_LIMIT_RIGHT, isPullup: true });
+  const endstopLeft = new five.Button({ pin: PIN_LIMIT_LEFT, isPullup: true });
 
   var stepper = new five.Stepper({
     type: five.Stepper.TYPE.DRIVER,
-    stepsPerRev: 3600,
-    // pins: [2, 3],
+    stepsPerRev: microStepsPerRev,
     pins: {
-        dir: 4,
-        step: 3
-      }
+      dir: PIN_STEPPER_DIR,
+      step: PIN_STEPPER_STEP
+    }
   });
 
+  stepper.rpm(speed);
 
-  var stepperStep = new five.Pin({
-    pin: 11
+  setTimeout(() => {
+    loggingEnabled = true;
+  }, INIT_DELAY);
+
+  buttonRight.on("press", () => {
+    if (loggingEnabled) console.log("Button: X-RIGHT pressed");
+    buttonsPressed.right = true;
+    checkAndMove();
   });
-  var stepperDirection = new five.Pin({
-    pin: 12
+
+  buttonRight.on("release", () => {
+    if (loggingEnabled) console.log("Button: X-RIGHT released");
+    buttonsPressed.right = false;
+    checkAndMove();
   });
 
-  // Create a new generic sensor instance for
-  // a sensor connected to an analog (ADC) pin
-  // const sensor = new five.Sensor("A0");
+  buttonLeft.on("press", () => {
+    if (loggingEnabled) console.log("Button: X-LEFT pressed");
+    buttonsPressed.left = true;
+    checkAndMove();
+  });
 
+  buttonLeft.on("release", () => {
+    if (loggingEnabled) console.log("Button: X-LEFT released");
+    buttonsPressed.left = false;
+    checkAndMove();
+  });
 
+  endstopRight.on("press", () => {
+    if (loggingEnabled) console.log("Limit: X-RIGHT reached");
+    endstopsPressed.right = true;
+  });
 
-  // const buttons = {
-  //   right: { value: 510, pressed: false }, // hnedy, cerny, cerny, zlutohnedy, hnedy
-  //   left: { value: 990, pressed: false } // hnedy, cerny, cerny, cerveny, hnedy
-  // }
+  endstopRight.on("release", () => {
+    if (loggingEnabled) console.log("Limit: X-RIGHT cleared");
+    endstopsPressed.right = false;
+  });
 
-  // sensor.on("change", value => {
-  //   for (var key in buttons) {
-  //     let buttonValue = buttons[key].value
-  //     buttons[key].pressed = value > buttonValue - 10 && value < buttonValue + 10
-  //   }
-  //   console.log(value)
-  //   console.log(buttons)
-  // });
+  endstopLeft.on("press", () => {
+    if (loggingEnabled) console.log("Limit: X-LEFT reached");
+    endstopsPressed.left = true;
+  });
 
-  const buttonsPressed = {
-    right: false,
-    left: false
-  }
+  endstopLeft.on("release", () => {
+    if (loggingEnabled) console.log("Limit: X-LEFT cleared");
+    endstopsPressed.left = false;
+  });
 
-  // var buttonRight = new five.Button(7);
-  // var buttonLeft = new five.Button(6);
+  function checkAndMove() {
+    if (buttonsPressed.right && buttonsPressed.left) {
+      if (loggingEnabled) console.log("Both X buttons pressed - stopping");
+      return;
+    }
 
-  // buttonRight.on("press", function() {
-  //   console.log('buttonRight.on("press')
-  //   buttonsPressed.right = true
-  // });
-
-  // buttonRight.on("release", function() {
-  //   console.log('buttonRight.on("release')
-  //   buttonsPressed.right = false
-  // });
-
-  // buttonLeft.on("press", function() {
-  //   console.log('buttonLeft.on("press",')
-  //   buttonsPressed.left = true
-  // });
-
-  // buttonLeft.on("release", function() {
-  //   console.log('buttonLeft.on("release",')
-  //   buttonsPressed.left = false
-  // });
-
-  // board.loop(10, () => {
-  //   if (buttonsPressed.right && buttonsPressed.left) {
-  //     // both pressed => zero movement
-  //   } else {
-  //     if (buttonsPressed.right) {
-  //       console.log('step CW')
-  //       stepperDirection.low()
-  //       stepperStep.high()
-  //       board.wait(5, function() {
-  //         stepperStep.low()
-  //       })
-
-  //       // stepper.step({ steps: 1, direction: 1 }, () => {});
-  //     }
-  //     if (buttonsPressed.left) {
-  //       stepperDirection.high()
-  //       stepperStep.high()
-  //       board.wait(5, function() {
-  //         stepperStep.low()
-  //       })
-  //       // stepper.step({ steps: 1, direction: 0 }, () => {});
-  //     }
-  //   }
-  // });
-
-  console.log("ready");
-
-  // Set stepper to 180 RPM, counter-clockwise with acceleration and deceleration
-  stepper.rpm(30).cw()
-
-  var direction = 1;
-  function runStepper() {
-    stepper.direction(direction).step(3600, () => {
-      console.log("Stop");
-
-      board.wait(1000, function() {
-        console.log("Go =>", direction);
-        runStepper();
-
-        if (direction == 1) {
-          direction = 0;
-        } else {
-          direction = 1;
+    if (!stepper.isMoving) {
+      if (buttonsPressed.right && !endstopsPressed.right) {
+        if (!isMoving || currentDirection !== 'right') {
+          moveStartTime = Date.now();
+          stepCount = 0;
+          isMoving = true;
+          currentDirection = 'right';
         }
-      });
-
-    });
+        stepCount++;
+        stepper.cw().step(smallStepAmount, () => {
+          if (buttonsPressed.right && !endstopsPressed.right) {
+            checkAndMove();
+          } else {
+            if (loggingEnabled) {
+              const duration = ((Date.now() - moveStartTime) / 1000).toFixed(1);
+              console.log(`Stepper stopped after moving RIGHT for ${duration}s (${stepCount} cycles)`);
+            }
+            isMoving = false;
+            currentDirection = null;
+          }
+        });
+      } else if (buttonsPressed.left && !endstopsPressed.left) {
+        if (!isMoving || currentDirection !== 'left') {
+          moveStartTime = Date.now();
+          stepCount = 0;
+          isMoving = true;
+          currentDirection = 'left';
+        }
+        stepCount++;
+        stepper.ccw().step(smallStepAmount, () => {
+          if (buttonsPressed.left && !endstopsPressed.left) {
+            checkAndMove();
+          } else {
+            if (loggingEnabled) {
+              const duration = ((Date.now() - moveStartTime) / 1000).toFixed(1);
+              console.log(`Stepper stopped after moving LEFT for ${duration}s (${stepCount} cycles)`);
+            }
+            isMoving = false;
+            currentDirection = null;
+          }
+        });
+      }
+    }
   }
-  runStepper();
-});
+
+  console.log("Stepper initialized");
+}
