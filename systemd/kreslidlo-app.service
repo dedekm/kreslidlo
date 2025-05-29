@@ -1,0 +1,17 @@
+# /etc/systemd/system/kreslidlo-app.service
+
+[Unit]
+Description=Kreslidlo App
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/node /home/drakpi/kreslidlo/app.js
+WorkingDirectory=/home/drakpi/kreslidlo
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=drakpi
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
