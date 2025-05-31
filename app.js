@@ -34,7 +34,7 @@ const PIN_STEPPER_DIR = 12;
 const PIN_STEPPER_STEP = 13;
 
 const MOTOR_SPEED_UP = 70;
-const MOTOR_SPEED_DOWN = 40;
+const MOTOR_SPEED_DOWN = 45;
 
 const INIT_DELAY = 1000; // 1 second delay before enabling logs
 
@@ -228,7 +228,7 @@ function initializeMotor() {
 }
 
 function initializeStepper() {
-  const speed = 80;
+  const speed = 100;
   const stepsPerRev = 200;
   const microSteps = 16;
   const microStepsPerRev = stepsPerRev * microSteps;
